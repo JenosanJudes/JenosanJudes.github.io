@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JudesOS portefølje</title>
+<meta name="description" content="Jenosan Judes' portefølje, bygget som en lille computer i browseren.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Schibsted+Grotesk:wght@400;500;700&family=Unbounded:wght@500;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: skrivebordet er et regnearks-gitter. Indhold bor i vinduer med tykke rammer
+     og hårde skygger. Proceslinje i bunden. På mobil fylder hvert vindue hele skærmen. */
+  --ink: #14132b;
+  --paper: #f6f7fb;
+  --desk: #2f3bd6;
+  --sun: #ffd23f;
+  --coral: #ff6b5a;
+  --mint: #4fe0a6;
+  --lilac: #c3adff;
+  --sky: #86d6ff;
+  --idle: #d9dbe6;
+  --text: var(--ink);   /* tekst på papir */
+  --rule: var(--ink);   /* streger inde i vinduer */
+  --r: 0px;             /* hjørner */
+  --zoom: 1;            /* tekststørrelse i vinduer */
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --bar: 56px;
+  --edge: 3px;
+  color-scheme: light;
+}
+
+/* Indstillinger, som brugeren kan slå til i programmet Indstillinger */
+:root[data-vinduer="moerk"] { --paper: #26254d; --text: #eef0ff; --rule: #9a9fd6; --idle: #8f93c4; }
+:root[data-hjorner="rund"] { --r: 14px; }
+:root[data-tekst="lille"] { --zoom: .9; }
+:root[data-tekst="stor"] { --zoom: 1.15; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+button { font: inherit; color: inherit; cursor: pointer; border-radius: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.win :focus-visible, .taskbar :focus-visible, .menu :focus-visible, .card :focus-visible {
+  outline-color: var(--ink);
+}
+[hidden] { display: none !important; }
+
+/* ---------- Skrivebord ---------- */
+#desk { position: absolute; inset: 0 0 var(--bar) 0; overflow: hidden; }
+#grid { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.icons {
+  position: absolute; inset: 16px auto 16px 16px; z-index: 1;
+  display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 8px;
+}
+.icon {
+  width: 104px; padding: 8px 4px; background: none; border: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  color: #fff; font-size: 14px; font-weight: 500; text-align: center;
+}
+.glyph {
+  width: 56px; height: 56px; display: grid; place-items: center;
+  background: var(--c); color: var(--ink);
+  border: var(--edge) solid var(--ink); box-shadow: 4px 4px 0 var(--ink); border-radius: var(--r);
+  transition: transform .12s, box-shadow .12s;
+}
+.icon:hover .glyph { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.icon .name { background: var(--ink); padding: 1px 6px; }
+
+#windows { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+/* ---------- Vinduer ---------- */
+.win {
+  position: absolute; display: flex; flex-direction: column; pointer-events: auto;
+  min-width: 260px; min-height: 180px; overflow: hidden;
+  background: var(--paper); color: var(--text); border-radius: var(--r);
+  border: var(--edge) solid var(--ink); box-shadow: 8px 8px 0 var(--ink);
+}
+.win.max { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; box-shadow: none; border-radius: 0; }
+.bar {
+  display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px;
+  background: var(--idle); color: var(--ink); border-bottom: var(--edge) solid var(--ink);
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.win.active .bar { background: var(--c); }
+.win.active[data-app="terminal"] .bar { color: #fff; }
+.bar h2 {
+  flex: 1; min-width: 0; margin: 0;
+  font-family: var(--display); font-weight: 500; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ctl { display: flex; gap: 6px; }
+.ctl button {
+  width: 30px; height: 30px; padding: 0; display: grid; place-items: center;
+  background: var(--paper); color: var(--text); border: 2px solid var(--ink); border-radius: calc(var(--r) / 2);
+}
+.ctl button:hover { background: var(--text); color: var(--paper); }
+.body { flex: 1; min-height: 0; overflow: auto; padding: 22px 24px; overflow-wrap: anywhere; zoom: var(--zoom); }
+.grip {
+  position: absolute; right: 0; bottom: 0; width: 20px; height: 20px;
+  cursor: nwse-resize; touch-action: none;
+  background: linear-gradient(135deg, transparent 50%, var(--ink) 50%);
+}
+
+/* ---------- Indhold i vinduer ---------- */
+.body h3 {
+  margin: 0 0 14px; font-family: var(--display); font-weight: 800;
+  font-size: 24px; line-height: 1.15; text-wrap: balance;
+}
+.body h4 { margin: 22px 0 8px; font-family: var(--display); font-weight: 500; font-size: 14px; }
+.body h4:first-child { margin-top: 0; }
+.body p { margin: 0 0 12px; max-width: 62ch; }
+.body p:last-child { margin-bottom: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 6px; padding: 0; list-style: none; }
+.chips li { padding: 3px 9px; border: 2px solid var(--ink); border-radius: calc(var(--r) / 2); color: var(--ink); background: var(--c, #fff); font-size: 14.5px; font-weight: 500; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
+.group { margin: 0 0 4px; font-size: 14px; }
+
+.scroll-x { overflow-x: auto; }
+.ledger { width: 100%; border-collapse: collapse; border-top: var(--edge) solid var(--rule); }
+.ledger td { padding: 12px 10px 12px 0; border-bottom: 2px solid var(--rule); vertical-align: top; }
+.ledger td.per {
+  width: 1%; padding-right: 16px; white-space: nowrap;
+  font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 15px;
+}
+.ledger strong { display: block; }
+.ledger .sted { display: block; font-size: 14.5px; }
+.ledger p { margin: 6px 0 0; font-size: 15px; }
+.ledger ul { margin: 6px 0 0; padding-left: 18px; font-size: 15px; max-width: 62ch; }
+.ledger li { margin-bottom: 4px; }
+
+.empty { border: var(--edge) dashed var(--rule); border-radius: var(--r); padding: 28px 20px; text-align: center; }
+.project { border: var(--edge) solid var(--rule); border-radius: var(--r); padding: 16px; margin-bottom: 14px; }
+.project h4 { margin: 0 0 6px; }
+
+.contact { margin: 0; padding: 0; list-style: none; border-top: var(--edge) solid var(--rule); }
+.contact li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 0; border-bottom: 2px solid var(--rule); }
+.contact .what { width: 84px; font-weight: 700; }
+.contact .value { font-family: var(--mono); font-size: 14px; }
+.btn {
+  min-height: 40px; padding: 6px 14px; background: var(--sun); color: var(--ink); border-radius: calc(var(--r) / 2);
+  border: var(--edge) solid var(--ink); box-shadow: 3px 3px 0 var(--ink); font-weight: 700;
+}
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+
+/* Terminal */
+.win[data-app="terminal"] .body {
+  background: var(--ink); color: #e9ebff; padding: 14px 16px;
+  font-family: var(--mono); font-size: 14px; line-height: 1.55;
+}
+.term-out div { white-space: pre-wrap; }
+.term-out .cmd { color: var(--sun); }
+.term-line { display: flex; gap: 8px; align-items: baseline; }
+.term-line label { color: var(--mint); white-space: nowrap; }
+.term-line input {
+  flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: none;
+  color: inherit; font: inherit; caret-color: var(--sun);
+}
+
+/* Spil */
+.game-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-bottom: 12px; font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.game-top strong { font-size: 16px; }
+.game-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.game-grid button {
+  min-height: 48px; padding: 4px; background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: calc(var(--r) / 2);
+  font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.game-grid button[aria-pressed="true"] { background: var(--mint); box-shadow: inset 0 0 0 2px var(--ink); font-weight: 700; }
+.game-grid button:disabled { opacity: .45; cursor: default; }
+.game-msg { min-height: 1.5em; font-weight: 500; }
+
+/* Indstillinger */
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.swatches button {
+  min-width: 92px; min-height: 44px; padding: 6px 10px; color: #fff; font-weight: 500;
+  background: var(--c); border: var(--edge) solid var(--ink); border-radius: calc(var(--r) / 2);
+}
+.swatches button[aria-pressed="true"] { box-shadow: inset 0 0 0 4px var(--sun); font-weight: 700; }
+.switch { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.switch input { width: 22px; height: 22px; flex: none; accent-color: var(--coral); }
+.set { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; }
+.set > span { width: 132px; font-weight: 500; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  min-height: 40px; padding: 6px 12px; background: var(--paper); color: var(--text);
+  border: 2px solid var(--rule); border-radius: calc(var(--r) / 2); font-weight: 500;
+}
+.seg button[aria-pressed="true"] { background: var(--sun); color: var(--ink); border-color: var(--ink); font-weight: 700; }
+.body hr { margin: 18px 0; border: 0; border-top: 2px solid var(--rule); }
+
+/* ---------- Proceslinje og startmenu ---------- */
+.taskbar {
+  position: absolute; inset: auto 0 0 0; height: var(--bar); z-index: 1000;
+  display: flex; align-items: center; gap: 8px; padding: 0 10px;
+  background: var(--paper); color: var(--text); border-top: var(--edge) solid var(--ink);
+}
+.start {
+  height: 42px; padding: 0 14px 0 6px; display: flex; align-items: center; gap: 8px; flex: none;
+  background: var(--sun); color: var(--ink); border: var(--edge) solid var(--ink); border-radius: calc(var(--r) / 2);
+  font-family: var(--display); font-weight: 800; font-size: 13px;
+}
+.start[aria-expanded="true"] { background: var(--ink); color: var(--sun); }
+.logo { width: 26px; height: 26px; display: grid; place-items: center; background: var(--ink); color: var(--sun); font-family: var(--display); font-weight: 800; font-size: 14px; }
+.start[aria-expanded="true"] .logo { background: var(--sun); color: var(--ink); }
+.tasks { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tasks::-webkit-scrollbar { display: none; }
+.task {
+  height: 42px; padding: 0 12px; display: flex; align-items: center; gap: 8px; flex: none;
+  background: var(--paper); color: var(--text); border: 2px solid var(--ink); border-radius: calc(var(--r) / 2);
+  font-size: 14px; font-weight: 500; white-space: nowrap;
+}
+.task i { width: 12px; height: 12px; background: var(--c); border: 2px solid var(--ink); }
+.task.active { background: var(--text); color: var(--paper); }
+.task.active i { border-color: var(--paper); }
+.clock { flex: none; text-align: right; font-family: var(--mono); font-size: 13px; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.menu {
+  position: absolute; left: 10px; bottom: calc(var(--bar) + 8px); z-index: 1001;
+  width: min(300px, calc(100% - 20px)); max-height: calc(100% - var(--bar) - 24px); overflow: auto;
+  padding: 8px; background: var(--paper); color: var(--text); border-radius: var(--r);
+  border: var(--edge) solid var(--ink); box-shadow: 8px 8px 0 var(--ink);
+}
+.menu .who { padding: 8px 8px 12px; margin-bottom: 6px; border-bottom: 2px solid var(--rule); }
+.menu .who strong { display: block; font-family: var(--display); font-weight: 800; font-size: 15px; }
+.menu .who span { font-size: 14px; }
+.menu button {
+  width: 100%; min-height: 44px; padding: 6px 8px; display: flex; align-items: center; gap: 10px;
+  background: none; border: 0; text-align: left; font-weight: 500;
+}
+.menu button:hover { background: var(--sun); color: var(--ink); }
+.menu .mini { width: 30px; height: 30px; display: grid; place-items: center; flex: none; background: var(--c); color: var(--ink); border: 2px solid var(--ink); }
+.menu .sep { margin: 6px 0; border: 0; border-top: 2px solid var(--rule); }
+
+/* ---------- Login ---------- */
+.login {
+  position: absolute; inset: 0; z-index: 2000; display: grid; place-items: center;
+  padding: 16px; overflow: auto; background: rgba(20, 19, 43, .6);
+}
+.card {
+  width: min(580px, 100%); padding: 30px 28px 28px; background: var(--paper); color: var(--text); border-radius: var(--r);
+  border: var(--edge) solid var(--ink); box-shadow: 10px 10px 0 var(--sun);
+}
+.card h1 {
+  margin: 0 0 12px; font-family: var(--display); font-weight: 800;
+  font-size: clamp(28px, 7vw, 44px); line-height: 1.05; text-wrap: balance;
+}
+.card p { margin: 0 0 6px; max-width: 52ch; }
+.card .ask { margin-top: 18px; font-weight: 700; }
+.roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.role {
+  padding: 14px 12px; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  background: var(--c); color: var(--ink); border: var(--edge) solid var(--ink); box-shadow: 4px 4px 0 var(--ink); border-radius: calc(var(--r) / 2);
+  transition: transform .12s, box-shadow .12s;
+}
+.role:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.role strong { font-family: var(--display); font-weight: 500; font-size: 14px; }
+.role span { font-size: 14px; }
+
+/* Proceslinjen kan flyttes til toppen i Indstillinger */
+:root[data-linje="top"] #desk { inset: var(--bar) 0 0 0; }
+:root[data-linje="top"] .taskbar { inset: 0 0 auto 0; border-top: 0; border-bottom: var(--edge) solid var(--ink); }
+:root[data-linje="top"] .menu { bottom: auto; top: calc(var(--bar) + 8px); }
+
+/* ---------- Mobil: hvert vindue fylder skærmen, ikoner i et gitter ---------- */
+@media (max-width: 700px) {
+  .icons {
+    inset: 14px 12px auto 12px; flex-direction: row;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 4px;
+  }
+  .icon { width: auto; padding: 6px 0; font-size: 12.5px; }
+  .win { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; box-shadow: none; border-width: 0 0 var(--edge) 0; border-radius: 0; }
+  .bar { cursor: default; padding: 8px 8px 8px 14px; }
+  .ctl button { width: 40px; height: 40px; }
+  .ctl .maxbtn, .grip { display: none; }
+  .body { padding: 20px 18px; }
+  .body h3 { font-size: 21px; }
+  .roles { grid-template-columns: 1fr; }
+  .role { flex-direction: row; align-items: baseline; gap: 10px; flex-wrap: wrap; min-height: 52px; }
+  .card { padding: 24px 20px 22px; box-shadow: 6px 6px 0 var(--sun); }
+  .start span.word { display: none; }
+  .start { padding: 0 6px; }
+  .clock .date { display: none; }
+  .task { padding: 0 10px; }
+  .game-grid button { min-height: 52px; }
+  .set > span { width: 100%; }
+  .ledger tr, .ledger td { display: block; }
+  .ledger td.per { width: auto; padding: 12px 0 0; border-bottom: 0; }
+  .ledger td.per + td { padding: 2px 0 12px; }
+  .seg button { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<main id="desk" aria-label="Skrivebord">
+  <canvas id="grid" aria-hidden="true"></canvas>
+  <nav class="icons" id="icons" aria-label="Programmer"></nav>
+  <div id="windows"></div>
+</main>
+
+<div class="menu" id="menu" hidden></div>
+
+<footer class="taskbar">
+  <button class="start" id="start" aria-expanded="false" aria-controls="menu">
+    <span class="logo" aria-hidden="true">J</span><span class="word">Start</span>
+  </button>
+  <div class="tasks" id="tasks" aria-label="Åbne vinduer"></div>
+  <div class="clock" id="clock" aria-label="Ur"></div>
+</footer>
+
+<div class="login" id="login" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <div class="card">
+    <h1 id="login-title">Hej, jeg er Jenosan.</h1>
+    <p>Det her er min portefølje, bygget som en lille computer. Åbn programmerne, flyt rundt på vinduerne, og skriv gerne i terminalen.</p>
+    <p class="ask">Hvem sidder ved tastaturet?</p>
+    <div class="roles" id="roles"></div>
+  </div>
+</div>
+
+<noscript>
+  <div style="position:absolute;inset:0;z-index:3000;padding:24px;background:#f6f7fb;overflow:auto">
+    <h1>Jenosan Judes</h1>
+    <p>Softwareingeniørstuderende på VIA University College med baggrund i økonomi, bogføring og drift.</p>
+    <p>Siden er bygget som en lille computer og kræver JavaScript. Slå JavaScript til for at se den.</p>
+  </div>
+</noscript>
+
+<script>
+/* =====================================================================
+   1. INDHOLD – ret teksterne her. Resten af filen behøver du ikke røre.
+   ===================================================================== */
+const PROFIL = {
+  navn: 'Jenosan Judes',
+  titel: 'Softwareingeniørstuderende',
+  om: [
+    'Jeg læser til softwareingeniør på VIA University College og er på 3. semester.',
+    'Før det læste jeg økonomi på Aarhus Universitet, var daglig leder i restaurationsbranchen i mere end ti år og startede min egen bogføringsvirksomhed, Judes Accounting, som jeg har drevet siden 2021.',
+    'Jeg ved, hvordan et regnskab, en vagtplan og en flåde af firmabiler ser ud indefra. Nu lærer jeg at bygge systemerne bag dem.',
+    'Jeg søger studierelevant arbejde i Aarhus-området, gerne tæt på data, ERP og forretningssystemer.'
+  ],
+  kan: [
+    { gruppe: 'Software', farve: 'var(--mint)', punkter: ['Java', 'C#/.NET', 'Python', 'Objektorienteret design', 'Design patterns', 'Git', 'SQL og NoSQL', 'Datamodellering', 'HTML, CSS og JavaScript', 'Client/server-arkitektur', 'Algoritmer og datastrukturer', 'Dataanalyse i Python (Pandas, NumPy)', 'AI-værktøjer og AI-agenter'] },
+    { gruppe: 'Økonomi og administration', farve: 'var(--sun)', punkter: ['Bogføring, moms og skat', 'e-conomic', 'Dinero', 'Erhvervsjuridiske dokumenter', 'SharePoint', 'Power Apps', 'Business Central', 'Procesoptimering', 'Projektarbejde i tværfaglige teams'] },
+    { gruppe: 'Sprog', farve: 'var(--sky)', punkter: ['Dansk', 'Engelsk', 'Tysk (mellemniveau)'] }
+  ],
+  laerer: ['Git i dybden: branches, rebase og pull requests', 'Microsoft- og Azure-platforme'],
+  // Erfaring: hver post har kun titel og sted. Ingen beskrivelser og ingen årstal.
+  // (Koden kan stadig vise  tekst: '...'  og  periode: '...'  hvis du en dag vil have det.)
+  arbejde: [
+    { titel: 'Front office-koordinator', sted: 'ELCON NRGi' },
+    { titel: 'Selvstændig bogholder', sted: 'Judes Accounting' },
+    { titel: 'Domsmand', sted: 'Vestre Landsret' },
+    { titel: 'Daglig leder', sted: 'Allingåbro Grill & Pizza' }
+  ],
+  uddannelse: [
+    { titel: 'Diplomingeniør, softwareteknologi', sted: 'VIA University College', tekst: '3. semester. Praktik på 5. semester.' },
+    { titel: 'Økonomi', sted: 'Aarhus Universitet' }
+  ],
+  frivilligt: [
+    { titel: 'Frivillig', sted: 'Røde Kors, Randers' },
+    { titel: 'Lektiehjælper', sted: 'Auning Bibliotek' },
+    { titel: 'Fodboldtræner', sted: 'Auning IF' }
+  ],
+  // Udfyld de to linjer herunder. Så længe de starter med "INDSÆT", vises de ikke på siden.
+  mail: 'INDSÆT_MAIL',
+  linkedin: 'INDSÆT_LINKEDIN_URL',
+  github: 'https://github.com/JenosanJudes'
+};
+
+/* Projekter: tilføj et projekt ved at kopiere eksemplet ind mellem [ og ].
+   { titel: 'Navn på projekt', tekst: 'Hvad det er, og hvad du lavede.',
+     teknologier: ['Java', 'PostgreSQL'], link: 'https://github.com/...' },            */
+const PROJEKTER = [];
+
+/* =====================================================================
+   2. SMÅ HJÆLPERE
+   ===================================================================== */
+const $ = (s, root = document) => root.querySelector(s);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const isSmall = () => matchMedia('(max-width: 700px)').matches;
+const mangler = v => !v || v.startsWith('INDSÆT');
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const k in attrs || {}) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  }
+  return el;
+}
+
+const ICONS = {
+  om: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  kompetencer: '<path d="M5 20V11M12 20V4M19 20v-6"/>',
+  erfaring: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  projekter: '<path d="M3 6h7l2 3h9v10H3z"/>',
+  kontakt: '<path d="M3 5h18v14H3zM3 7l9 7 9-7"/>',
+  terminal: '<path d="M5 8l4 4-4 4M12 16h7"/>',
+  spil: '<path d="M5 9h14M5 15h14"/>',
+  indstillinger: '<path d="M4 8h9M19 8h1M4 16h1M11 16h9"/><circle cx="16" cy="8" r="2.5"/><circle cx="8" cy="16" r="2.5"/>',
+  min: '<path d="M6 17h12"/>',
+  max: '<path d="M6 6h12v12H6z"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>'
+};
+function icon(id, size = 28) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24');
+  s.setAttribute('width', size);
+  s.setAttribute('height', size);
+  s.setAttribute('fill', 'none');
+  s.setAttribute('stroke', 'currentColor');
+  s.setAttribute('stroke-width', '2.4');
+  s.setAttribute('stroke-linecap', 'square');
+  s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = ICONS[id];
+  return s;
+}
+
+/* Indstillinger gemmes i browseren, hvis den tillader det. */
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem('judesos') || '{}'); } catch { return {}; } },
+  set(v) { try { localStorage.setItem('judesos', JSON.stringify(v)); } catch { /* ok uden */ } }
+};
+const DEFAULTS = {
+  desk: '#2f3bd6',     // skrivebordets farve
+  pattern: 'gitter',   // gitter | prikker | ingen
+  anim: true,          // felter lyser op
+  theme: 'lys',        // lys | moerk
+  corners: 'kantet',   // kantet | rund
+  text: 'normal',      // lille | normal | stor
+  bar: 'bund',         // bund | top
+  seconds: false,      // vis sekunder i uret
+  date: true           // vis dato i uret
+};
+const settings = Object.assign({}, DEFAULTS, store.get());
+
+/* =====================================================================
+   3. PROGRAMMERNE
+   ===================================================================== */
+function ledger(rows) {
+  return h('div', { class: 'scroll-x' },
+    h('table', { class: 'ledger' }, h('tbody', null, rows.map(r =>
+      h('tr', null,
+        r.periode && h('td', { class: 'per' }, r.periode),
+        h('td', null, h('strong', null, r.titel), h('span', { class: 'sted' }, r.sted),
+          r.punkter && h('ul', null, r.punkter.map(t => h('li', null, t))),
+          r.tekst && h('p', null, r.tekst)))))));
+}
+
+const APPS = [
+  {
+    id: 'om', title: 'Om mig', color: 'var(--sun)', w: 520, h: 430,
+    render(body) {
+      body.append(h('h3', null, PROFIL.navn), ...PROFIL.om.map(t => h('p', null, t)));
+    }
+  },
+  {
+    id: 'kompetencer', title: 'Kompetencer', color: 'var(--mint)', w: 700, h: 540,
+    render(body) {
+      const kan = h('div', null, h('h4', null, 'Det kan jeg i dag'));
+      for (const g of PROFIL.kan) {
+        kan.append(h('p', { class: 'group' }, g.gruppe),
+          h('ul', { class: 'chips', style: `--c:${g.farve}` }, g.punkter.map(p => h('li', null, p))));
+      }
+      const laerer = h('div', null, h('h4', null, 'Det lærer jeg lige nu'),
+        h('ul', { class: 'chips', style: '--c:var(--lilac)' }, PROFIL.laerer.map(p => h('li', null, p))));
+      body.append(h('div', { class: 'cols' }, kan, laerer));
+    }
+  },
+  {
+    id: 'erfaring', title: 'Erfaring', color: 'var(--lilac)', w: 560, h: 540,
+    render(body) {
+      body.append(h('h4', null, 'Arbejde'), ledger(PROFIL.arbejde), h('h4', null, 'Uddannelse'), ledger(PROFIL.uddannelse),
+        h('h4', null, 'Frivilligt arbejde'), ledger(PROFIL.frivilligt));
+    }
+  },
+  {
+    id: 'projekter', title: 'Projekter', color: 'var(--coral)', w: 520, h: 360,
+    render(body) {
+      if (!PROJEKTER.length) {
+        body.append(h('div', { class: 'empty' }, h('h3', null, 'Her er tomt lige nu'), h('p', null, 'Nye projekter er på vej. Kig forbi igen.')));
+        return;
+      }
+      for (const p of PROJEKTER) {
+        body.append(h('article', { class: 'project' },
+          h('h4', null, p.titel), h('p', null, p.tekst),
+          p.teknologier && h('ul', { class: 'chips' }, p.teknologier.map(t => h('li', null, t))),
+          p.link && h('p', null, h('a', { href: p.link, target: '_blank', rel: 'noopener' }, 'Se projektet'))));
+      }
+    }
+  },
+  {
+    id: 'kontakt', title: 'Kontakt', color: 'var(--sky)', w: 500, h: 340,
+    render(body) {
+      const list = h('ul', { class: 'contact' });
+      // Mail og LinkedIn vises kun, når de er udfyldt i PROFIL.
+      if (!mangler(PROFIL.mail)) {
+        const copy = h('button', { class: 'btn', onclick() {
+          navigator.clipboard.writeText(PROFIL.mail)
+            .then(() => { copy.textContent = 'Mail kopieret'; setTimeout(() => copy.textContent = 'Kopiér mail', 2000); })
+            .catch(() => { copy.textContent = 'Kunne ikke kopiere. Markér adressen selv.'; });
+        } }, 'Kopiér mail');
+        list.append(h('li', null, h('span', { class: 'what' }, 'Mail'),
+          h('a', { class: 'value', href: 'mailto:' + PROFIL.mail }, PROFIL.mail), copy));
+      }
+      if (!mangler(PROFIL.linkedin)) {
+        list.append(h('li', null, h('span', { class: 'what' }, 'LinkedIn'),
+          h('a', { class: 'value', href: PROFIL.linkedin, target: '_blank', rel: 'noopener' }, PROFIL.linkedin.replace(/^https?:\/\/(www\.)?/, ''))));
+      }
+      list.append(h('li', null, h('span', { class: 'what' }, 'GitHub'),
+        h('a', { class: 'value', href: PROFIL.github, target: '_blank', rel: 'noopener' }, PROFIL.github.replace(/^https?:\/\//, ''))));
+      body.append(h('h3', null, 'Skriv til mig'), list);
+    }
+  },
+  { id: 'terminal', title: 'Terminal', color: 'var(--ink)', w: 560, h: 380, render: renderTerminal },
+  { id: 'spil', title: 'Afstem', color: 'var(--sun)', w: 400, h: 470, render: renderSpil },
+  { id: 'indstillinger', title: 'Indstillinger', color: 'var(--sky)', w: 520, h: 580, render: renderIndstillinger }
+];
+const appById = id => APPS.find(a => a.id === id);
+
+/* ---- Terminal ---- */
+function renderTerminal(body) {
+  const out = h('div', { class: 'term-out', 'aria-live': 'polite' });
+  const input = h('input', { id: 'term-in', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'send', 'aria-label': 'Kommando' });
+  const form = h('div', { class: 'term-line' }, h('label', { for: 'term-in' }, 'gæst@judesos:~$'), input);
+  const history = []; let pos = 0;
+  const print = (text, cls) => { out.append(h('div', { class: cls }, text)); };
+
+  const kommandoer = {
+    'hjælp': () => [
+      'hjælp          vis denne liste',
+      'hvem           hvem er Jenosan',
+      'kompetencer    hvad jeg kan',
+      'erfaring       job og uddannelse',
+      'projekter      mine projekter',
+      'kontakt        sådan får du fat i mig',
+      'åbn <program>  åbn et program, fx "åbn kontakt"',
+      'dato           dags dato',
+      'ryd            ryd skærmen'
+    ],
+    'hvem': () => [PROFIL.navn + ', ' + PROFIL.titel.toLowerCase() + '.', ...PROFIL.om.slice(1)],
+    'kompetencer': () => [...PROFIL.kan.map(g => g.gruppe + ': ' + g.punkter.join(', ')), 'Lærer lige nu: ' + PROFIL.laerer.join(', ')],
+    'erfaring': () => [...PROFIL.arbejde, ...PROFIL.uddannelse, ...PROFIL.frivilligt].map(r => (r.periode ? r.periode.padEnd(24) : '') + r.titel + ', ' + r.sted),
+    'projekter': () => PROJEKTER.length ? PROJEKTER.map(p => p.titel + ': ' + p.tekst) : ['Her er tomt lige nu. Nye projekter er på vej.'],
+    'kontakt': () => [
+      !mangler(PROFIL.mail) && 'Mail:     ' + PROFIL.mail,
+      !mangler(PROFIL.linkedin) && 'LinkedIn: ' + PROFIL.linkedin,
+      'GitHub:   ' + PROFIL.github
+    ].filter(Boolean),
+    'dato': () => [new Date().toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })],
+    'sudo': () => ['Adgang nægtet. Godt forsøgt.']
+  };
+  const alias = { help: 'hjælp', hjaelp: 'hjælp', whoami: 'hvem', skills: 'kompetencer', contact: 'kontakt', date: 'dato', clear: 'ryd', open: 'åbn', aabn: 'åbn', ls: 'hjælp' };
+
+  function run(raw) {
+    const line = raw.trim();
+    print('gæst@judesos:~$ ' + line, 'cmd');
+    if (!line) return;
+    let [cmd, ...rest] = line.toLowerCase().split(/\s+/);
+    cmd = alias[cmd] || cmd;
+    if (cmd === 'ryd') { out.replaceChildren(); return; }
+    if (cmd === 'åbn') {
+      const q = rest.join(' ');
+      const app = APPS.find(a => a.id === q || a.title.toLowerCase() === q);
+      if (app) { print('Åbner ' + app.title + '.'); openApp(app.id); }
+      else print('Vælg et program: ' + APPS.map(a => a.title.toLowerCase()).join(', ') + '.');
+      return;
+    }
+    if (kommandoer[cmd]) kommandoer[cmd]().forEach(t => print(t));
+    else print('Ukendt kommando: ' + cmd + '. Skriv "hjælp" for at se mulighederne.');
+  }
+
+  // Enter aflæses direkte på tastaturet. En <form> virker ikke, når siden vises
+  // i en indrammet forhåndsvisning, fordi browseren dér blokerer formularer.
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (input.value.trim()) { history.push(input.value); pos = history.length; }
+      run(input.value);
+      input.value = '';
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    pos = clamp(pos + (e.key === 'ArrowUp' ? -1 : 1), 0, history.length);
+    input.value = history[pos] || '';
+  });
+  body.addEventListener('click', e => { if (!getSelection().toString() && e.target !== input) input.focus(); });
+
+  print('JudesOS terminal. Skriv "hjælp" og tryk Enter.');
+  body.append(out, form);
+  if (!isSmall()) setTimeout(() => input.focus(), 0);
+}
+
+/* ---- Spil: Afstem ---- */
+function renderSpil(body) {
+  const kr = n => n.toLocaleString('da-DK') + ' kr.';
+  let cells = [], target = 0, picked = new Set(), score = 0, time = 0, timer = null;
+  const elTarget = h('strong'), elSum = h('span'), elTime = h('span'), elScore = h('span');
+  const grid = h('div', { class: 'game-grid' });
+  const msg = h('p', { class: 'game-msg', 'aria-live': 'polite' });
+  const startBtn = h('button', { class: 'btn', onclick: start }, 'Start spil');
+
+  function paint() {
+    const sum = [...picked].reduce((s, i) => s + cells[i], 0);
+    elTarget.textContent = timer ? kr(target) : '–';
+    elSum.textContent = 'Valgt: ' + kr(sum);
+    elTime.textContent = 'Tid: ' + time + ' s';
+    elScore.textContent = 'Afstemt: ' + score;
+    grid.replaceChildren(...cells.map((v, i) => h('button', {
+      'aria-pressed': picked.has(i) ? 'true' : 'false', disabled: !timer,
+      onclick() { picked.has(i) ? picked.delete(i) : picked.add(i); check(); }
+    }, v.toLocaleString('da-DK'))));
+  }
+  function round() {
+    cells = Array.from({ length: 16 }, () => (1 + Math.floor(Math.random() * 20)) * 25);
+    const order = [...cells.keys()].sort(() => Math.random() - .5);
+    target = order.slice(0, 2 + Math.floor(Math.random() * 3)).reduce((s, i) => s + cells[i], 0);
+    picked.clear();
+  }
+  function check() {
+    const sum = [...picked].reduce((s, i) => s + cells[i], 0);
+    if (sum === target) { score++; msg.textContent = 'Afstemt. Her er næste saldo.'; round(); }
+    else if (sum > target) msg.textContent = 'Du er over saldoen. Fjern en post.';
+    else msg.textContent = '';
+    paint();
+  }
+  function start() {
+    score = 0; time = 45; round();
+    clearInterval(timer);
+    timer = setInterval(() => {
+      time--;
+      if (time <= 0) {
+        clearInterval(timer); timer = null; picked.clear();
+        msg.textContent = 'Tiden er gået. Du afstemte ' + score + (score === 1 ? ' saldo.' : ' saldi.');
+        startBtn.textContent = 'Spil igen'; startBtn.hidden = false;
+      }
+      paint();
+    }, 1000);
+    startBtn.hidden = true; msg.textContent = '';
+    paint();
+  }
+
+  round();
+  body.append(
+    h('p', null, 'Vælg de poster, der tilsammen giver bankens saldo. Du har 45 sekunder.'),
+    h('div', { class: 'game-top' }, h('span', null, 'Bankens saldo: ', elTarget), elSum, elTime, elScore),
+    grid, msg, startBtn);
+  paint();
+  return () => clearInterval(timer);
+}
+
+/* ---- Indstillinger ---- */
+function renderIndstillinger(body) {
+  const updaters = [];
+  const refresh = () => updaters.forEach(f => f());
+  const set = (key, val) => { settings[key] = val; applySettings(); refresh(); };
+
+  // En række knapper, hvor én er valgt ad gangen.
+  function choice(title, key, options, cls) {
+    const btns = options.map(([label, val, color]) =>
+      h('button', { style: color && `--c:${color}`, onclick: () => set(key, val) }, label));
+    updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(settings[key] === options[i][1]))));
+    return h('div', { class: 'set' }, h('span', null, title), h('div', { class: cls || 'seg', role: 'group', 'aria-label': title }, btns));
+  }
+  // Et flueben, der slår noget til eller fra.
+  function toggle(id, label, key) {
+    const box = h('input', { id, type: 'checkbox' });
+    box.addEventListener('change', () => set(key, box.checked));
+    updaters.push(() => { box.checked = settings[key]; });
+    return h('label', { class: 'switch', for: id }, box, label);
+  }
+
+  body.append(
+    h('h4', null, 'Skrivebord'),
+    choice('Farve', 'desk', [['Kobolt', '#2f3bd6'], ['Skov', '#0f6b52'], ['Blomme', '#6a2c91'], ['Blæk', '#1d1c3a'], ['Tegl', '#a8382a'], ['Petroleum', '#0b5c7a']]
+      .map(([n, hex]) => [n, hex, hex]), 'swatches'),
+    choice('Mønster', 'pattern', [['Gitter', 'gitter'], ['Prikker', 'prikker'], ['Intet', 'ingen']]),
+    toggle('set-anim', 'Lad felterne på skrivebordet lyse op', 'anim'),
+    h('hr'),
+    h('h4', null, 'Vinduer'),
+    choice('Tema', 'theme', [['Lyst', 'lys'], ['Mørkt', 'moerk']]),
+    choice('Hjørner', 'corners', [['Kantede', 'kantet'], ['Runde', 'rund']]),
+    choice('Tekststørrelse', 'text', [['Lille', 'lille'], ['Normal', 'normal'], ['Stor', 'stor']]),
+    h('hr'),
+    h('h4', null, 'Proceslinje og ur'),
+    choice('Placering', 'bar', [['Bund', 'bund'], ['Top', 'top']]),
+    toggle('set-seconds', 'Vis sekunder i uret', 'seconds'),
+    toggle('set-date', 'Vis dato i uret', 'date'),
+    h('hr'),
+    h('button', { class: 'btn', onclick() { Object.assign(settings, DEFAULTS); applySettings(); refresh(); } }, 'Nulstil indstillinger'));
+  refresh();
+}
+function applySettings() {
+  const root = document.documentElement;
+  root.style.setProperty('--desk', settings.desk);
+  root.dataset.vinduer = settings.theme;
+  root.dataset.hjorner = settings.corners;
+  root.dataset.tekst = settings.text;
+  root.dataset.linje = settings.bar;
+  store.set(settings);
+  if (!settings.anim) lit.clear();
+  drawGrid();
+  tick();
+}
+
+/* =====================================================================
+   4. VINDUESSTYRING
+   ===================================================================== */
+const layer = $('#windows');
+const wins = new Map();
+let zTop = 10, cascade = 0;
+
+function openApp(id, slot) {
+  closeMenu();
+  const open = wins.get(id);
+  if (open) { open.el.hidden = false; focusWin(id); return; }
+  const app = appById(id);
+  const r = layer.getBoundingClientRect();
+  const width = Math.min(app.w, r.width - 24), height = Math.min(app.h, r.height - 24);
+  // Nye vinduer starter til højre for ikonerne, så de ikke dækker dem.
+  const startX = r.width > 900 ? $('#icons').getBoundingClientRect().right - r.left + 20 : 16;
+  let left, top;
+  if (Array.isArray(slot)) {
+    // Fast plads: [0,0] er øverst til venstre, [1,1] nederst til højre.
+    left = startX + slot[0] * Math.max(0, r.width - startX - width - 20);
+    top = 16 + slot[1] * Math.max(0, r.height - height - 36);
+  } else {
+    left = clamp(startX + cascade * 36, 12, Math.max(12, r.width - width - 16));
+    top = clamp(20 + cascade * 32, 12, Math.max(12, r.height - height - 16));
+    cascade = (cascade + 1) % 6;
+  }
+
+  const body = h('div', { class: 'body' });
+  const bar = h('div', { class: 'bar' },
+    h('h2', { id: 'title-' + id }, app.title),
+    h('div', { class: 'ctl' },
+      h('button', { 'aria-label': 'Minimér ' + app.title, onclick: () => minimize(id) }, icon('min', 18)),
+      h('button', { class: 'maxbtn', 'aria-label': 'Maksimér ' + app.title, onclick: () => { el.classList.toggle('max'); focusWin(id); } }, icon('max', 18)),
+      h('button', { 'aria-label': 'Luk ' + app.title, onclick: () => closeWin(id) }, icon('close', 18))));
+  const grip = h('div', { class: 'grip', 'aria-hidden': 'true' });
+  const el = h('section', {
+    class: 'win', 'data-app': id, 'aria-labelledby': 'title-' + id,
+    style: `--c:${app.color};left:${left}px;top:${top}px;width:${width}px;height:${height}px`
+  }, bar, body, grip);
+
+  el.addEventListener('pointerdown', () => focusWin(id), true);
+  bar.addEventListener('dblclick', e => { if (!e.target.closest('button') && !isSmall()) el.classList.toggle('max'); });
+  drag(bar, e => {
+    if (e.target.closest('button') || el.classList.contains('max') || isSmall()) return null;
+    const ox = e.clientX - el.offsetLeft, oy = e.clientY - el.offsetTop;
+    return ev => {
+      const b = layer.getBoundingClientRect();
+      el.style.left = clamp(ev.clientX - ox, 80 - el.offsetWidth, b.width - 80) + 'px';
+      el.style.top = clamp(ev.clientY - oy, 0, b.height - 44) + 'px';
+    };
+  });
+  drag(grip, e => {
+    const sw = el.offsetWidth, sh = el.offsetHeight, sx = e.clientX, sy = e.clientY;
+    return ev => {
+      el.style.width = Math.max(260, sw + ev.clientX - sx) + 'px';
+      el.style.height = Math.max(180, sh + ev.clientY - sy) + 'px';
+    };
+  });
+
+  layer.append(el);
+  const destroy = app.render(body);
+  wins.set(id, { el, destroy });
+  focusWin(id);
+}
+
+/* Fælles træk-logik til at flytte og ændre størrelse. */
+function drag(handle, begin) {
+  handle.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    const move = begin(e);
+    if (!move) return;
+    handle.setPointerCapture(e.pointerId);
+    const stop = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', stop);
+      handle.removeEventListener('pointercancel', stop);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', stop);
+    handle.addEventListener('pointercancel', stop);
+  });
+}
+
+function focusWin(id) {
+  for (const [key, w] of wins) w.el.classList.toggle('active', key === id);
+  if (id && wins.has(id)) wins.get(id).el.style.zIndex = ++zTop;
+  renderTasks();
+}
+function topVisible(except) {
+  let best = null, z = -1;
+  for (const [key, w] of wins) {
+    const wz = +w.el.style.zIndex || 0;
+    if (key !== except && !w.el.hidden && wz > z) { best = key; z = wz; }
+  }
+  return best;
+}
+function minimize(id) { wins.get(id).el.hidden = true; focusWin(topVisible(id)); }
+function closeWin(id) {
+  const w = wins.get(id);
+  if (typeof w.destroy === 'function') w.destroy();
+  w.el.remove(); wins.delete(id);
+  focusWin(topVisible());
+}
+
+/* =====================================================================
+   5. PROCESLINJE, STARTMENU, UR
+   ===================================================================== */
+const tasks = $('#tasks'), menu = $('#menu'), startBtn = $('#start');
+
+function renderTasks() {
+  tasks.replaceChildren(...[...wins].map(([id, w]) => {
+    const app = appById(id), active = w.el.classList.contains('active') && !w.el.hidden;
+    return h('button', {
+      class: 'task' + (active ? ' active' : ''), style: `--c:${app.color === 'var(--ink)' ? 'var(--mint)' : app.color}`,
+      onclick() { if (w.el.hidden) { w.el.hidden = false; focusWin(id); } else if (active) minimize(id); else focusWin(id); }
+    }, h('i', { 'aria-hidden': 'true' }), app.title);
+  }));
+}
+
+function closeMenu() { menu.hidden = true; startBtn.setAttribute('aria-expanded', 'false'); }
+function buildMenu() {
+  menu.append(h('div', { class: 'who' }, h('strong', null, PROFIL.navn), h('span', null, PROFIL.titel)));
+  for (const app of APPS) {
+    menu.append(h('button', { onclick: () => openApp(app.id) },
+      h('span', { class: 'mini', style: `--c:${app.color};${app.id === 'terminal' ? 'color:#fff' : ''}` }, icon(app.id, 18)), app.title));
+  }
+  menu.append(h('hr', { class: 'sep' }), h('button', { onclick() { closeMenu(); showLogin(); } }, 'Skift bruger'));
+}
+startBtn.addEventListener('click', () => {
+  const open = menu.hidden;
+  menu.hidden = !open;
+  startBtn.setAttribute('aria-expanded', String(open));
+  if (open) menu.querySelector('button').focus();
+});
+document.addEventListener('pointerdown', e => {
+  if (!menu.hidden && !menu.contains(e.target) && !startBtn.contains(e.target)) closeMenu();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { closeMenu(); startBtn.focus(); } });
+
+const clock = $('#clock');
+function tick() {
+  const now = new Date();
+  clock.replaceChildren(h('div', null, now.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', second: settings.seconds ? '2-digit' : undefined })));
+  if (settings.date) clock.append(h('div', { class: 'date' }, now.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' })));
+}
+tick(); setInterval(tick, 1000);
+
+/* Ikoner på skrivebordet */
+$('#icons').append(...APPS.map(app => h('button', { class: 'icon', onclick: () => openApp(app.id) },
+  h('span', { class: 'glyph', style: `--c:${app.color};${app.id === 'terminal' ? 'color:#fff' : ''}` }, icon(app.id)),
+  h('span', { class: 'name' }, app.title))));
+
+/* =====================================================================
+   6. LOGIN MED ROLLEVALG
+   ===================================================================== */
+const ROLLER = [
+  { navn: 'Rekrutterer', tekst: 'Åbner erfaring og kontakt', farve: 'var(--sun)', apps: [['erfaring', [1, 0]], ['kontakt', [.45, 1]], ['om', [0, 0]]] },
+  { navn: 'Udvikler', tekst: 'Åbner terminal og kompetencer', farve: 'var(--mint)', apps: [['kompetencer', [0, 0]], ['terminal', [1, 1]]] },
+  { navn: 'Bare nysgerrig', tekst: 'Åbner et spil og lidt om mig', farve: 'var(--lilac)', apps: [['om', [0, 0]], ['spil', [1, 0]]] }
+];
+const login = $('#login');
+$('#roles').append(...ROLLER.map(r => h('button', {
+  class: 'role', style: `--c:${r.farve}`,
+  onclick() { hideLogin(); r.apps.forEach(([id, slot]) => openApp(id, slot)); }
+}, h('strong', null, r.navn), h('span', null, r.tekst))));
+const behind = [$('#desk'), $('.taskbar')];
+function showLogin() { login.hidden = false; behind.forEach(el => el.inert = true); login.querySelector('button').focus(); }
+function hideLogin() { login.hidden = true; behind.forEach(el => el.inert = false); }
+
+/* =====================================================================
+   7. SKRIVEBORDETS GITTER (felter lyser op under musen)
+   ===================================================================== */
+const desk = $('#desk'), cv = $('#grid'), ctx = cv.getContext('2d');
+const CELL = 48, lit = new Map();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const GLOW = [cssVar('--sun'), cssVar('--coral'), cssVar('--mint')], INK = cssVar('--ink');
+let raf = 0;
+const animOn = () => settings.anim && !reduced.matches;
+
+function sizeGrid() {
+  const r = desk.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+  cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  drawGrid();
+}
+function drawGrid() {
+  const w = cv.clientWidth, ht = cv.clientHeight;
+  ctx.clearRect(0, 0, w, ht);
+  for (const [key, c] of lit) {
+    const [x, y] = key.split(',').map(Number);
+    ctx.globalAlpha = c.a; ctx.fillStyle = c.color;
+    ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    if (c.txt) {
+      ctx.fillStyle = INK; ctx.font = '700 12px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(c.txt, x * CELL + CELL / 2, y * CELL + CELL / 2 + 1);
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (settings.pattern === 'gitter') {
+    ctx.strokeStyle = 'rgba(255,255,255,.17)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = .5; x < w; x += CELL) { ctx.moveTo(x, 0); ctx.lineTo(x, ht); }
+    for (let y = .5; y < ht; y += CELL) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+  } else if (settings.pattern === 'prikker') {
+    ctx.fillStyle = 'rgba(255,255,255,.42)';
+    for (let x = 0; x < w; x += CELL) for (let y = 0; y < ht; y += CELL) ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+  }
+}
+function fade() {
+  raf = 0;
+  for (const [key, c] of lit) { c.a -= .014; if (c.a <= 0) lit.delete(key); }
+  drawGrid();
+  if (lit.size) raf = requestAnimationFrame(fade);
+}
+function light(x, y, color, txt) {
+  lit.set(x + ',' + y, { a: .92, color, txt });
+  if (!raf) raf = requestAnimationFrame(fade);
+}
+desk.addEventListener('pointermove', e => {
+  if (!animOn() || e.pointerType === 'touch') return;
+  const r = desk.getBoundingClientRect();
+  light(Math.floor((e.clientX - r.left) / CELL), Math.floor((e.clientY - r.top) / CELL), GLOW[0]);
+});
+setInterval(() => {
+  if (!animOn() || document.hidden) return;
+  const cols = Math.ceil(cv.clientWidth / CELL), rows = Math.ceil(cv.clientHeight / CELL);
+  light(Math.floor(Math.random() * cols), Math.floor(Math.random() * rows),
+    GLOW[Math.floor(Math.random() * GLOW.length)], String(25 * (1 + Math.floor(Math.random() * 39))));
+}, 650);
+addEventListener('resize', sizeGrid);
+
+/* =====================================================================
+   8. START
+   ===================================================================== */
+buildMenu();
+applySettings();
+sizeGrid();
+behind.forEach(el => el.inert = true);
+</script>
+</body>
+</html>
