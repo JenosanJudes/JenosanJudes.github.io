@@ -381,7 +381,8 @@ const PROFIL = {
     { titel: 'Fodboldtræner', sted: 'Auning IF' }
   ],
   // Udfyld de to linjer herunder. Så længe de starter med "INDSÆT", vises de ikke på siden.
-  mail: 'INDSÆT_MAIL',
+  mail: 'janusjudes@gmail.com',
+  telefon: '23 10 30 94',
   linkedin: 'INDSÆT_LINKEDIN_URL',
   github: 'https://github.com/JenosanJudes'
 };
@@ -529,6 +530,10 @@ const APPS = [
         list.append(h('li', null, h('span', { class: 'what' }, 'Mail'),
           h('a', { class: 'value', href: 'mailto:' + PROFIL.mail }, PROFIL.mail), copy));
       }
+      if (!mangler(PROFIL.telefon)) {
+        list.append(h('li', null, h('span', { class: 'what' }, 'Telefon'),
+          h('a', { class: 'value', href: 'tel:+45' + PROFIL.telefon.replace(/\s/g, '') }, PROFIL.telefon)));
+      }
       if (!mangler(PROFIL.linkedin)) {
         list.append(h('li', null, h('span', { class: 'what' }, 'LinkedIn'),
           h('a', { class: 'value', href: PROFIL.linkedin, target: '_blank', rel: 'noopener' }, PROFIL.linkedin.replace(/^https?:\/\/(www\.)?/, ''))));
@@ -570,6 +575,7 @@ function renderTerminal(body) {
     'projekter': () => PROJEKTER.length ? PROJEKTER.map(p => p.titel + ': ' + p.tekst) : ['Her er tomt lige nu. Nye projekter er på vej.'],
     'kontakt': () => [
       !mangler(PROFIL.mail) && 'Mail:     ' + PROFIL.mail,
+      !mangler(PROFIL.telefon) && 'Telefon:  ' + PROFIL.telefon,
       !mangler(PROFIL.linkedin) && 'LinkedIn: ' + PROFIL.linkedin,
       'GitHub:   ' + PROFIL.github
     ].filter(Boolean),
