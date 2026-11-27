@@ -125,6 +125,12 @@ a { color: inherit; }
 .body p { margin: 0 0 12px; max-width: 62ch; }
 .body p:last-child { margin-bottom: 0; }
 
+.inline-link {
+  padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700;
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+.inline-link:hover { background: var(--sun); color: var(--ink); }
+
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 6px; padding: 0; list-style: none; }
 .chips li { padding: 3px 9px; border: 2px solid var(--ink); border-radius: calc(var(--r) / 2); color: var(--ink); background: var(--c, #fff); font-size: 14.5px; font-weight: 500; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
@@ -351,12 +357,12 @@ a { color: inherit; }
 const PROFIL = {
   navn: 'Jenosan Judes',
   titel: 'Softwareingeniørstuderende',
+  // Om mig: Jenosans egen tekst. Teksten i "link" åbner Kontakt-vinduet.
   om: [
-    'Jeg læser til softwareingeniør på VIA University College og er på 3. semester.',
-    'Før det læste jeg økonomi på Aarhus Universitet, var daglig leder i restaurationsbranchen i mere end ti år og startede min egen bogføringsvirksomhed, Judes Accounting, som jeg har drevet siden 2021.',
-    'Jeg ved, hvordan et regnskab, en vagtplan og en flåde af firmabiler ser ud indefra. Nu lærer jeg at bygge systemerne bag dem.',
-    'Jeg søger studierelevant arbejde i Aarhus-området, gerne tæt på data, ERP og forretningssystemer.'
+    'Softwareingeniørstuderende på 4. semester, i gang med et sporskifte fra økonomi, rådgivning og administration til noget mere studierelevant … Ja, jeg er faktisk ikke helt sikker på, hvad det skal føre til. Måske kan du hjælpe mig på vej?',
+    'Jeg har altid været selvstændig, kompatibel og udstyret med en evne til at finde løsninger, uanset hvilket felt jeg har været i. Lidt af en schweizerkniv, der passer ind, uanset om det er i et fagligt eller socialt miljø.'
   ],
+  omSlut: { foer: 'Vil du høre mere, så send mig en brevdue, eller endnu nemmere: ', link: 'fang mig her', efter: '.' },
   kan: [
     { gruppe: 'Software', farve: 'var(--mint)', punkter: ['Java', 'C#/.NET', 'Python', 'Objektorienteret design', 'Design patterns', 'Versionstyring og Git', 'SQL og NoSQL', 'Datamodellering', 'HTML, CSS og JavaScript', 'Client/server-arkitektur', 'Algoritmer og datastrukturer', 'Dataanalyse i Python (Pandas, NumPy)', 'AI-værktøjer og AI-agenter'] },
     { gruppe: 'Økonomi og administration', farve: 'var(--sun)', punkter: ['Bogføring, moms og skat', 'e-conomic', 'Dinero', 'Erhvervsjuridiske dokumenter', 'SharePoint', 'Power Apps', 'Business Central', 'Procesoptimering', 'Projektarbejde i tværfaglige teams'] },
@@ -372,7 +378,7 @@ const PROFIL = {
     { titel: 'Daglig leder', sted: 'Allingåbro Grill & Pizza' }
   ],
   uddannelse: [
-    { titel: 'Diplomingeniør, softwareteknologi', sted: 'VIA University College', tekst: '3. semester. Praktik på 5. semester.' },
+    { titel: 'Diplomingeniør, softwareteknologi', sted: 'VIA University College', tekst: '4. semester. Praktik på 5. semester.' },
     { titel: 'Økonomi', sted: 'Aarhus Universitet' }
   ],
   frivilligt: [
@@ -478,7 +484,9 @@ const APPS = [
   {
     id: 'om', title: 'Om mig', color: 'var(--sun)', w: 520, h: 430,
     render(body) {
-      body.append(h('h3', null, PROFIL.navn), ...PROFIL.om.map(t => h('p', null, t)));
+      const fang = h('button', { class: 'inline-link', onclick: () => openApp('kontakt') }, PROFIL.omSlut.link);
+      body.append(h('h3', null, PROFIL.navn), ...PROFIL.om.map(t => h('p', null, t)),
+        h('p', null, PROFIL.omSlut.foer, fang, PROFIL.omSlut.efter));
     }
   },
   {
@@ -569,7 +577,7 @@ function renderTerminal(body) {
       'dato           dags dato',
       'ryd            ryd skærmen'
     ],
-    'hvem': () => [PROFIL.navn + ', ' + PROFIL.titel.toLowerCase() + '.', ...PROFIL.om.slice(1)],
+    'hvem': () => [PROFIL.navn, ...PROFIL.om, PROFIL.omSlut.foer + 'skriv "åbn kontakt".'],
     'kompetencer': () => [...PROFIL.kan.map(g => g.gruppe + ': ' + g.punkter.join(', ')), 'Lærer lige nu: ' + PROFIL.laerer.join(', ')],
     'erfaring': () => [...PROFIL.arbejde, ...PROFIL.uddannelse, ...PROFIL.frivilligt].map(r => (r.periode ? r.periode.padEnd(24) : '') + r.titel + ', ' + r.sted),
     'projekter': () => PROJEKTER.length ? PROJEKTER.map(p => p.titel + ': ' + p.tekst) : ['Her er tomt lige nu. Nye projekter er på vej.'],
